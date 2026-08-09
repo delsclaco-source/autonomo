@@ -167,8 +167,8 @@
   --shadow-lg: var(--shadow-lg);
   --shadow-xl: var(--shadow-xl);
 
-  --font-sans: var(--font-source-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-heading: var(--font-lexend), var(--font-source-sans), ui-sans-serif, sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-jakarta), var(--font-inter), ui-sans-serif, sans-serif;
 
   /* shadcn component utilities: bg-card, text-muted-foreground, ... */
   --color-card: var(--card);

@@ -1,16 +1,21 @@
 import type { Metadata, Viewport } from 'next'
-import { Lexend, Source_Sans_3 } from 'next/font/google'
+import { Inter, Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
 
-const lexend = Lexend({
-  variable: '--font-lexend',
+// Headings. Plus Jakarta Sans over the other two the brief allows because its
+// wider apertures hold up at the tight tracking headlines use here, and it was
+// cut for Indonesian text — the market this ships to.
+const jakarta = Plus_Jakarta_Sans({
+  variable: '--font-jakarta',
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+  weight: ['500', '600', '700', '800'],
   display: 'swap',
 })
 
-const sourceSans = Source_Sans_3({
-  variable: '--font-source-sans',
+// Body. Inter's tabular figures are what keep price and discount columns
+// aligned; see the `.tabular` helper in globals.css.
+const inter = Inter({
+  variable: '--font-inter',
   subsets: ['latin'],
   weight: ['400', '500', '600'],
   display: 'swap',
@@ -38,9 +43,8 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     // Geist was pulled in by `shadcn init` and removed again: it bound
-    // --font-sans, which shadowed the Source Sans 3 / Lexend pairing that
-    // MASTER.md specifies.
-    <html lang="id" className={`h-full antialiased ${lexend.variable} ${sourceSans.variable}`}>
+    // --font-sans directly, which shadowed the pairing globals.css builds.
+    <html lang="id" className={`h-full antialiased ${jakarta.variable} ${inter.variable}`}>
       <body className="flex min-h-full flex-col">{children}</body>
     </html>
   )
