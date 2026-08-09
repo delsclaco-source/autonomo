@@ -121,7 +121,8 @@ lib/
   db/schema.ts
   redis/index.ts         -- klien + rate limiter + key namespace
   env.ts                 -- validasi env lazy (zod)
-scripts/db-probe.mjs     -- cek koneksi DB read-only, list tabel/enum
+  db/ssl.ts              -- CA pinning Supabase + kebijakan TLS per host (satu sumber)
+scripts/db-probe.mts     -- cek koneksi DB read-only, list tabel/enum (`npm run db:probe`)
 design-system/autonomo-id/MASTER.md
 ```
 

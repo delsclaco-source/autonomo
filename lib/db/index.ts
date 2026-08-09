@@ -1,6 +1,7 @@
 import { Pool } from 'pg'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { serverEnv } from '@/lib/env'
+import { dbSsl } from './ssl'
 import * as schema from './schema'
 
 /**
@@ -36,16 +37,10 @@ function createDb() {
   const pool = new Pool({
     connectionString: DATABASE_URL,
     max: 1,
-    // Supabase's pooler presents a certificate for its own hostname; the
-    // connection is still TLS-encrypted, the chain just is not verifiable from
-    // here. Anything stricter fails to connect at all.
-    //
-    // TODO(fase-1): pin the Supabase CA instead. `rejectUnauthorized: false`
-    // accepts *any* certificate, so a party able to intercept the connection can
-    // present their own and read every query — including the customer phone
-    // numbers this database exists to protect. Download the pooler CA, ship it
-    // as `ssl: { ca }`, and the chain verifies without disabling the check.
-    ssl: { rejectUnauthorized: false },
+    // Full chain and hostname verification against Supabase's pinned root. See
+    // `lib/db/ssl.ts` for why the certificate has to be supplied by hand and how
+    // its authenticity was established.
+    ssl: dbSsl(DATABASE_URL),
     connectionTimeoutMillis: 10_000,
     idleTimeoutMillis: 10_000,
   })

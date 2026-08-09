@@ -15,7 +15,7 @@ Breakdown task berdasarkan PRD (roadmap MVP → Phase 4), disusun mengikuti arsi
 - [ ] Setup env vars di Vercel project settings (`.env.example` sudah jadi template)
 - [x] Jalankan skill `ui-ux-pro-max` → design token ada di `design-system/autonomo-id/MASTER.md`, sudah diturunkan ke `app/globals.css`
 - [x] Setup `lib/db`, `lib/redis`, `lib/auth` skeleton
-- [x] Migration awal: 10 tabel + 5 enum, `drizzle/0000_military_jean_grey.sql` — **sudah diterapkan** ke database (verifikasi: `npx dotenv -e .env.local -- node scripts/db-probe.mjs`)
+- [x] Migration awal: 10 tabel + 5 enum, `drizzle/0000_military_jean_grey.sql` — **sudah diterapkan** ke database (verifikasi: `npm run db:probe`)
 - [x] Security pass: CSP nonce, HSTS, host allowlist, anti open-redirect, HMAC session, guard role di layout sales/admin, `robots.ts`
 
 **Phase 0 selesai** kecuali setup domain + env vars di Vercel (baru relevan saat deploy).
