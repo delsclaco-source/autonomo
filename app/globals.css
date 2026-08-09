@@ -2,10 +2,13 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
-
 /*
  * Autonomo.id design tokens.
+ *
+ * Light mode only, by product decision — there is no dark palette and no
+ * `dark` variant. `color-scheme: light` below tells the browser to keep native
+ * controls, scrollbars and form widgets light even on a device set to dark, so
+ * a dark-OS visitor still sees the palette below rather than repainted inputs.
  *
  * Palette is a 60 / 20 / 20 split, set by the brand owner:
  *
@@ -28,6 +31,11 @@
  */
 
 :root {
+  /* Light only — never `light dark`. Without this a dark-OS browser repaints
+   * native inputs, scrollbars and the default page canvas dark, which would put
+   * dark controls on top of a white UI. */
+  color-scheme: light;
+
   /* Brand — Rosso Corsa. #d40000 rather than the brighter #ff2800 because white
    * text on it clears 4.5:1; the bright tone is kept for large decorative fills
    * where contrast rules do not apply. */
@@ -126,84 +134,6 @@
   --sidebar-accent-foreground: var(--color-foreground);
   --sidebar-border: var(--color-border);
   --sidebar-ring: var(--color-ring);
-}
-
-/*
- * Dark mode inverts the 60/20/20: ink takes the 60%, white becomes the accent.
- * Driven by the OS preference AND by an explicit `.dark` class, because shadcn
- * components are written against `.dark`. Both selectors set identical values so
- * the two mechanisms cannot disagree.
- */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-primary: #ff3b30;
-    --color-primary-hover: #ff6257;
-    --color-on-primary: #14090a;
-    --color-secondary: #ff2800;
-
-    --color-accent: #fafafa;
-    --color-accent-hover: #e4e4e7;
-    --color-on-accent: #0b0b0c;
-
-    --color-background: #0b0b0c;
-    --color-surface: #141416;
-    --color-muted: #1d1d20;
-
-    --color-foreground: #fafafa;
-    --color-foreground-muted: #a1a1aa;
-
-    --color-border: #2a2a2e;
-    --color-destructive: #ff3b30;
-    --color-warning: #fbbf24;
-    --color-success: #4ade80;
-    --color-ring: #ff3b30;
-
-    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5);
-    --shadow-md: 0 4px 12px rgb(0 0 0 / 0.55);
-    --shadow-lg: 0 12px 28px rgb(0 0 0 / 0.6);
-    --shadow-xl: 0 24px 48px rgb(0 0 0 / 0.65);
-
-    --chart-1: #ff3b30;
-    --chart-2: #ff8a7d;
-    --chart-3: #ffc2b9;
-    --chart-4: #a1a1aa;
-    --chart-5: #fafafa;
-  }
-}
-
-.dark {
-  --color-primary: #ff3b30;
-  --color-primary-hover: #ff6257;
-  --color-on-primary: #14090a;
-  --color-secondary: #ff2800;
-
-  --color-accent: #fafafa;
-  --color-accent-hover: #e4e4e7;
-  --color-on-accent: #0b0b0c;
-
-  --color-background: #0b0b0c;
-  --color-surface: #141416;
-  --color-muted: #1d1d20;
-
-  --color-foreground: #fafafa;
-  --color-foreground-muted: #a1a1aa;
-
-  --color-border: #2a2a2e;
-  --color-destructive: #ff3b30;
-  --color-warning: #fbbf24;
-  --color-success: #4ade80;
-  --color-ring: #ff3b30;
-
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5);
-  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.55);
-  --shadow-lg: 0 12px 28px rgb(0 0 0 / 0.6);
-  --shadow-xl: 0 24px 48px rgb(0 0 0 / 0.65);
-
-  --chart-1: #ff3b30;
-  --chart-2: #ff8a7d;
-  --chart-3: #ffc2b9;
-  --chart-4: #a1a1aa;
-  --chart-5: #fafafa;
 }
 
 @theme inline {

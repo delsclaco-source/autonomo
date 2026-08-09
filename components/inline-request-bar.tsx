@@ -74,7 +74,7 @@ export function InlineRequestBar() {
           >
             <SelectTrigger
               id="hero-brand"
-              className="h-10 w-full border-0 bg-transparent px-4 pb-2.5 pt-0 text-sm font-medium shadow-none focus-visible:ring-0 dark:bg-transparent"
+              className="h-10 w-full border-0 bg-transparent px-4 pb-2.5 pt-0 text-sm font-medium shadow-none focus-visible:ring-0"
             >
               <SelectValue placeholder="Semua brand" />
             </SelectTrigger>
@@ -101,7 +101,7 @@ export function InlineRequestBar() {
           <Select value={modelSlug} onValueChange={(v) => setModelSlug(v ?? '')} disabled={!brand}>
             <SelectTrigger
               id="hero-model"
-              className="h-10 w-full border-0 bg-transparent px-4 pb-2.5 pt-0 text-sm font-medium shadow-none focus-visible:ring-0 dark:bg-transparent"
+              className="h-10 w-full border-0 bg-transparent px-4 pb-2.5 pt-0 text-sm font-medium shadow-none focus-visible:ring-0"
             >
               <SelectValue placeholder={brand ? 'Pilih model' : 'Pilih brand dulu'} />
             </SelectTrigger>
@@ -134,7 +134,7 @@ export function InlineRequestBar() {
               value={priceText}
               onChange={(e) => setPriceText(groupDigits(e.target.value))}
               onKeyDown={(e) => e.key === 'Enter' && go()}
-              className="tabular h-10 rounded-none border-0 bg-transparent pb-2.5 pl-9 pr-4 pt-0 text-sm font-semibold shadow-none focus-visible:ring-0 dark:bg-transparent"
+              className="tabular h-10 rounded-none border-0 bg-transparent pb-2.5 pl-9 pr-4 pt-0 text-sm font-semibold shadow-none focus-visible:ring-0"
             />
           </div>
         </div>

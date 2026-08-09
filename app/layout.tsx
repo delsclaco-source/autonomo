@@ -30,6 +30,9 @@ export const viewport: Viewport = {
   initialScale: 1,
   // Zoom is never disabled — pinch-to-zoom is an accessibility requirement.
   maximumScale: 5,
+  // Light-only product decision: native controls, form widgets, and scrollbars
+  // must not be repainted dark on a dark-OS device.
+  colorScheme: 'light',
 }
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
