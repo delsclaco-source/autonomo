@@ -12,7 +12,8 @@
     "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",
     "db:push": "dotenv -e .env.local -- drizzle-kit push",
     "db:studio": "dotenv -e .env.local -- drizzle-kit studio",
-    "db:probe": "dotenv -e .env.local -- tsx scripts/db-probe.mts"
+    "db:probe": "dotenv -e .env.local -- tsx scripts/db-probe.mts",
+    "db:seed:pricing": "dotenv -e .env.local -- tsx scripts/seed-pricing.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
