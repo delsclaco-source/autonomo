@@ -9,6 +9,7 @@ const INITIAL: LeadStatusState = { status: 'idle' }
 
 const NEXT_STATUS: { value: LeadStatus; label: string }[] = [
   { value: 'pending', label: 'Belum dihubungi' },
+  { value: 'contacted', label: 'Sudah dihubungi' },
   { value: 'negotiation', label: 'Negosiasi' },
   { value: 'won', label: 'Deal' },
   { value: 'lost', label: 'Batal' },
@@ -17,7 +18,7 @@ const NEXT_STATUS: { value: LeadStatus; label: string }[] = [
 /**
  * Pipeline control for one lead.
  *
- * Four buttons rather than a dropdown: on a phone a `<select>` costs two taps and
+ * Five buttons rather than a dropdown: on a phone a `<select>` costs two taps and
  * hides the current value behind the second one, and this is the control a sales
  * user touches most often in the app. The active state is visible without
  * opening anything.

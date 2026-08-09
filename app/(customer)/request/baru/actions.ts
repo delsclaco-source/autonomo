@@ -106,6 +106,13 @@ async function insertRequest(customerId: string, value: ResolvedRequest) {
       brand: value.brand,
       model: value.model,
       variant: value.variant,
+      // Both units are stored. The rupiah figures are what the customer actually
+      // typed and what the matching engine compares against `sales_offers`, which
+      // is also in rupiah; the percentage cannot be compared across models without
+      // the OTR. Freezing `list_price` keeps a later catalogue price change from
+      // rewriting what this request was asking for.
+      listPrice: value.listPrice,
+      targetPrice: value.targetPrice,
       // numeric columns take strings in drizzle-orm/pg to avoid float rounding.
       discountWanted: value.discountWanted.toFixed(2),
       tier: value.tier,

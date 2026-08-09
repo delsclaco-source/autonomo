@@ -100,6 +100,11 @@ export async function updateLeadStatusAction(
     .update(leads)
     .set({
       status: next.data,
+      // `last_contacted_at` is what the Follow-Up Center and `response_rate` are
+      // computed from. Written here rather than on the WhatsApp button because
+      // opening a chat is not proof a message was sent; marking the status is the
+      // sales user asserting they made contact.
+      ...(next.data === 'contacted' ? { lastContactedAt: new Date() } : {}),
       closedAt: closed ? new Date() : null,
       updatedAt: new Date(),
     })

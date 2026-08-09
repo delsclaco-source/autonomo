@@ -10,6 +10,8 @@ import {
   unlockPricingRules,
   users,
   type CarTier,
+  type LeadStatus,
+  type VerificationStatus,
 } from '@/lib/db/schema'
 
 /**
@@ -63,12 +65,16 @@ export function jakartaMonthStart(now = new Date()): Date {
 export type SalesOverview = {
   tokenBalance: number
   premium: boolean
+  /** True only for `verified`. Kept for the badge, which is binary. */
   verified: boolean
+  /** The full state, so a pending applicant sees "sedang ditinjau" and not just "no badge". */
+  verificationStatus: VerificationStatus
   brands: string[]
   referralCode: string
   unlocksToday: number
   dailyLimit: number | null
   leadsPending: number
+  leadsContacted: number
   leadsNegotiation: number
   leadsWon: number
   leadsLost: number
@@ -81,7 +87,7 @@ export async function salesOverview(salesId: string): Promise<SalesOverview> {
     .select({
       tokenBalance: salesProfile.tokenBalance,
       premiumUntil: salesProfile.premiumUntil,
-      verifiedBadge: salesProfile.verifiedBadge,
+      verificationStatus: salesProfile.verificationStatus,
       brands: salesProfile.brands,
       referralCode: salesProfile.referralCode,
     })
@@ -111,13 +117,18 @@ export async function salesOverview(salesId: string): Promise<SalesOverview> {
   return {
     tokenBalance: profile?.tokenBalance ?? 0,
     premium,
-    verified: profile?.verifiedBadge ?? false,
+    // The badge is shown only for `verified`. `pending` and `rejected` both mean
+    // "no badge", but they are different states to the applicant — the profile page
+    // reads `verificationStatus` directly to tell them apart.
+    verified: profile?.verificationStatus === 'verified',
+    verificationStatus: profile?.verificationStatus ?? 'pending',
     brands: profile?.brands ?? [],
     referralCode: profile?.referralCode ?? '',
     unlocksToday: quota?.count ?? 0,
     // Premium removes the daily cap; freemium keeps it. `null` means uncapped.
     dailyLimit: premium ? null : FREEMIUM_DAILY_UNLOCKS,
     leadsPending: tally('pending'),
+    leadsContacted: tally('contacted'),
     leadsNegotiation: tally('negotiation'),
     leadsWon: tally('won'),
     leadsLost: tally('lost'),
@@ -299,7 +310,7 @@ export type UnlockedLead = {
  */
 export async function unlockedLeads(
   salesId: string,
-  status?: 'pending' | 'negotiation' | 'won' | 'lost',
+  status?: LeadStatus,
 ): Promise<UnlockedLead[]> {
   const conditions = [eq(leads.salesId, salesId)]
   if (status) conditions.push(eq(leads.status, status))

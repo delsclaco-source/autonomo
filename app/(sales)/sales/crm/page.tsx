@@ -33,6 +33,7 @@ export const dynamic = 'force-dynamic'
 const TABS: { value: LeadStatus | 'all'; label: string }[] = [
   { value: 'all', label: 'Semua' },
   { value: 'pending', label: 'Belum dihubungi' },
+  { value: 'contacted', label: 'Sudah dihubungi' },
   { value: 'negotiation', label: 'Negosiasi' },
   { value: 'won', label: 'Deal' },
   { value: 'lost', label: 'Batal' },
@@ -56,8 +57,13 @@ export default async function SalesCrmPage({ searchParams }: { searchParams: Sea
 
   const counts: Record<LeadStatus | 'all', number> = {
     all:
-      overview.leadsPending + overview.leadsNegotiation + overview.leadsWon + overview.leadsLost,
+      overview.leadsPending +
+      overview.leadsContacted +
+      overview.leadsNegotiation +
+      overview.leadsWon +
+      overview.leadsLost,
     pending: overview.leadsPending,
+    contacted: overview.leadsContacted,
     negotiation: overview.leadsNegotiation,
     won: overview.leadsWon,
     lost: overview.leadsLost,
