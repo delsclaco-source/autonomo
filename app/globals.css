@@ -1,0 +1,306 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Autonomo.id design tokens.
+ *
+ * Palette is a 60 / 20 / 20 split, set by the brand owner:
+ *
+ *   60%  white   — every page and card surface; the default state of the UI
+ *   20%  red     — Rosso Corsa. Primary action, price savings, brand marks only
+ *   20%  black   — headings, dark bands, secondary actions, illustrations
+ *
+ * The ratio is a budget, not a suggestion: red belongs to the thing the user
+ * should do next and to the number they came for (the discount). Spreading it
+ * across borders, icons and headings is what makes a two-colour brand look
+ * generic, so those stay ink or grey.
+ *
+ * This supersedes the generated purple/green palette in
+ * design-system/autonomo-id/MASTER.md — that file was a placeholder produced
+ * before the brand colours existed.
+ *
+ * shadcn/ui ships its own token set (--primary, --card, --muted, ...). Those
+ * names are aliased onto the Autonomo values below so every shadcn component
+ * inherits the brand without being edited. Add new colours to the brand block.
+ */
+
+:root {
+  /* Brand — Rosso Corsa. #d40000 rather than the brighter #ff2800 because white
+   * text on it clears 4.5:1; the bright tone is kept for large decorative fills
+   * where contrast rules do not apply. */
+  --color-primary: #d40000;
+  --color-primary-hover: #a80000;
+  --color-on-primary: #ffffff;
+  --color-secondary: #ff2800;
+
+  /* Accent is ink, not a third hue: the calm counterweight to the red. */
+  --color-accent: #0b0b0c;
+  --color-accent-hover: #26262b;
+  --color-on-accent: #ffffff;
+
+  /* Surfaces — the 60%. Page and card are both white; separation comes from
+   * borders and shadow, not from tinting the page grey. */
+  --color-background: #ffffff;
+  --color-surface: #ffffff;
+  --color-muted: #f5f5f6;
+
+  /* Text */
+  --color-foreground: #0b0b0c;
+  --color-foreground-muted: #6b6b72;
+
+  /* Lines & state.
+   * `destructive` deliberately equals the brand red — in a red-branded UI colour
+   * alone can never mark an error, so error states must also carry an icon and a
+   * text label. That is a WCAG requirement regardless, so nothing is lost. */
+  --color-border: #e5e5e7;
+  --color-destructive: #d40000;
+  --color-warning: #92400e;
+  --color-success: #15703f;
+  --color-ring: #d40000;
+
+  /* Spacing — density 6/10 (standard) */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+
+  /* Radii — tighter than the previous set. Large pill radii read friendly and
+   * generic; a 6–10px corner reads like a product catalogue. */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+
+  /* Shadows are neutral black at low alpha so white cards stay white. */
+  --shadow-sm: 0 1px 2px rgb(11 11 12 / 0.06);
+  --shadow-md: 0 4px 12px rgb(11 11 12 / 0.08);
+  --shadow-lg: 0 12px 28px rgb(11 11 12 / 0.1);
+  --shadow-xl: 0 24px 48px rgb(11 11 12 / 0.14);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-slow: 300ms;
+
+  /* --- shadcn/ui aliases -------------------------------------------------
+   * shadcn reads bare `--card`, `--primary`, ...; the Autonomo tokens are
+   * `--color-*`. The @theme block below wires both into Tailwind utilities. */
+  --background: var(--color-background);
+  --foreground: var(--color-foreground);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-foreground);
+  --popover: var(--color-surface);
+  --popover-foreground: var(--color-foreground);
+  --primary: var(--color-primary);
+  --primary-foreground: var(--color-on-primary);
+  --secondary: var(--color-muted);
+  --secondary-foreground: var(--color-foreground);
+  --muted: var(--color-muted);
+  --muted-foreground: var(--color-foreground-muted);
+  --accent: var(--color-muted);
+  --accent-foreground: var(--color-foreground);
+  --destructive: var(--color-destructive);
+  --border: var(--color-border);
+  --input: var(--color-border);
+  --ring: var(--color-ring);
+  --radius: var(--radius-md);
+
+  /* Charts: red stepping down to ink, so a series ramp stays inside the brand. */
+  --chart-1: #d40000;
+  --chart-2: #f0523f;
+  --chart-3: #ff9d8a;
+  --chart-4: #6b6b72;
+  --chart-5: #0b0b0c;
+
+  --sidebar: var(--color-surface);
+  --sidebar-foreground: var(--color-foreground);
+  --sidebar-primary: var(--color-primary);
+  --sidebar-primary-foreground: var(--color-on-primary);
+  --sidebar-accent: var(--color-muted);
+  --sidebar-accent-foreground: var(--color-foreground);
+  --sidebar-border: var(--color-border);
+  --sidebar-ring: var(--color-ring);
+}
+
+/*
+ * Dark mode inverts the 60/20/20: ink takes the 60%, white becomes the accent.
+ * Driven by the OS preference AND by an explicit `.dark` class, because shadcn
+ * components are written against `.dark`. Both selectors set identical values so
+ * the two mechanisms cannot disagree.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary: #ff3b30;
+    --color-primary-hover: #ff6257;
+    --color-on-primary: #14090a;
+    --color-secondary: #ff2800;
+
+    --color-accent: #fafafa;
+    --color-accent-hover: #e4e4e7;
+    --color-on-accent: #0b0b0c;
+
+    --color-background: #0b0b0c;
+    --color-surface: #141416;
+    --color-muted: #1d1d20;
+
+    --color-foreground: #fafafa;
+    --color-foreground-muted: #a1a1aa;
+
+    --color-border: #2a2a2e;
+    --color-destructive: #ff3b30;
+    --color-warning: #fbbf24;
+    --color-success: #4ade80;
+    --color-ring: #ff3b30;
+
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5);
+    --shadow-md: 0 4px 12px rgb(0 0 0 / 0.55);
+    --shadow-lg: 0 12px 28px rgb(0 0 0 / 0.6);
+    --shadow-xl: 0 24px 48px rgb(0 0 0 / 0.65);
+
+    --chart-1: #ff3b30;
+    --chart-2: #ff8a7d;
+    --chart-3: #ffc2b9;
+    --chart-4: #a1a1aa;
+    --chart-5: #fafafa;
+  }
+}
+
+.dark {
+  --color-primary: #ff3b30;
+  --color-primary-hover: #ff6257;
+  --color-on-primary: #14090a;
+  --color-secondary: #ff2800;
+
+  --color-accent: #fafafa;
+  --color-accent-hover: #e4e4e7;
+  --color-on-accent: #0b0b0c;
+
+  --color-background: #0b0b0c;
+  --color-surface: #141416;
+  --color-muted: #1d1d20;
+
+  --color-foreground: #fafafa;
+  --color-foreground-muted: #a1a1aa;
+
+  --color-border: #2a2a2e;
+  --color-destructive: #ff3b30;
+  --color-warning: #fbbf24;
+  --color-success: #4ade80;
+  --color-ring: #ff3b30;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.55);
+  --shadow-lg: 0 12px 28px rgb(0 0 0 / 0.6);
+  --shadow-xl: 0 24px 48px rgb(0 0 0 / 0.65);
+
+  --chart-1: #ff3b30;
+  --chart-2: #ff8a7d;
+  --chart-3: #ffc2b9;
+  --chart-4: #a1a1aa;
+  --chart-5: #fafafa;
+}
+
+@theme inline {
+  /* Brand utilities: bg-primary, text-foreground-muted, border-border, ... */
+  --color-primary: var(--color-primary);
+  --color-primary-hover: var(--color-primary-hover);
+  --color-on-primary: var(--color-on-primary);
+  --color-secondary: var(--color-secondary);
+  --color-accent: var(--color-accent);
+  --color-accent-hover: var(--color-accent-hover);
+  --color-on-accent: var(--color-on-accent);
+  --color-background: var(--color-background);
+  --color-surface: var(--color-surface);
+  --color-muted: var(--color-muted);
+  --color-foreground: var(--color-foreground);
+  --color-foreground-muted: var(--color-foreground-muted);
+  --color-border: var(--color-border);
+  --color-destructive: var(--color-destructive);
+  --color-warning: var(--color-warning);
+  --color-success: var(--color-success);
+  --color-ring: var(--color-ring);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+
+  --font-sans: var(--font-source-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-lexend), var(--font-source-sans), ui-sans-serif, sans-serif;
+
+  /* shadcn component utilities: bg-card, text-muted-foreground, ... */
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-input: var(--input);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-heading);
+    letter-spacing: -0.02em;
+  }
+
+  /* Prices and counts line up in columns only if the digits are the same width. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Visible focus ring everywhere — never removed, only restyled. */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
