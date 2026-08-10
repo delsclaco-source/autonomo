@@ -13,7 +13,8 @@
     "db:push": "dotenv -e .env.local -- drizzle-kit push",
     "db:studio": "dotenv -e .env.local -- drizzle-kit studio",
     "db:probe": "dotenv -e .env.local -- tsx scripts/db-probe.mts",
-    "db:seed:pricing": "dotenv -e .env.local -- tsx scripts/seed-pricing.mts"
+    "db:seed:pricing": "dotenv -e .env.local -- tsx scripts/seed-pricing.mts",
+    "verify:unlock": "dotenv -e .env.local -- tsx --conditions react-server scripts/verify-unlock.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -28,6 +29,7 @@
     "pg": "^8.22.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "server-only": "^0.0.1",
     "shadcn": "^4.16.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
