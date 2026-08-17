@@ -157,7 +157,7 @@ function VerifyStep({
 
       {devCode && (
         <p className="rounded-md border border-border bg-muted px-3.5 py-2.5 text-xs text-foreground">
-          Mode pengembangan — gateway WhatsApp belum diisi. Kode:{' '}
+          Mode prototipe — pengiriman WhatsApp belum aktif, kode ditampilkan di sini. Kode:{' '}
           <span className="tabular font-bold">{devCode}</span>
         </p>
       )}

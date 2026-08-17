@@ -1,5 +1,5 @@
 import 'server-only'
-import { and, count, desc, eq, gte, inArray, notInArray, sql } from 'drizzle-orm'
+import { and, count, desc, eq, gte, ne, notInArray, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import {
   dailyUnlockQuota,
@@ -183,17 +183,24 @@ export type MarketplaceLead = {
   purchaseTimeframe: string | null
   notes: string | null
   createdAt: Date
-  /** How many sales users already bought this lead. */
-  competitors: number
   tokenCost: number
 }
 
 /**
- * Hot leads this sales user has not unlocked yet.
+ * The token pool: requests any sales user may still buy.
  *
- * Deliberately selects no customer identity columns. `flagged` requests are
- * excluded — those are pending fraud review and selling them would charge tokens
- * for a lead the platform itself does not trust.
+ * `pool` is the only status listed. It means one of two things — the customer
+ * named a price nobody could take seriously and the request was flagged at
+ * submission, or its auction closed without a single valid bid. Requests in
+ * `auction` are competed for with margin instead of tokens and belong on the
+ * Lelang screen; `claimed` ones already have their sales user.
+ *
+ * The exclusion sub-select spans every sales user, not just the caller. One
+ * request belongs to exactly one sales user, so a request somebody else bought
+ * is gone for everyone — listing it would advertise a lead the unlock
+ * transaction is about to refuse.
+ *
+ * Deliberately selects no customer identity columns.
  */
 export async function marketplaceLeads(
   salesId: string,
@@ -202,14 +209,14 @@ export async function marketplaceLeads(
   const db = getDb()
   const limit = Math.min(options.limit ?? 30, 60)
 
-  const alreadyUnlocked = db
-    .select({ requestId: leads.requestId })
-    .from(leads)
-    .where(eq(leads.salesId, salesId))
+  const alreadyTaken = db.select({ requestId: leads.requestId }).from(leads)
 
   const conditions = [
-    eq(requests.status, 'open'),
-    notInArray(requests.id, alreadyUnlocked),
+    eq(requests.status, 'pool'),
+    notInArray(requests.id, alreadyTaken),
+    // A sales user's own request never appears in their marketplace. The unlock
+    // transaction refuses it too; this keeps it off the screen in the first place.
+    ne(requests.customerId, salesId),
   ]
   if (options.brand) conditions.push(eq(requests.brand, options.brand))
   if (options.tier) conditions.push(eq(requests.tier, options.tier))
@@ -232,19 +239,6 @@ export async function marketplaceLeads(
     .limit(limit)
 
   if (rows.length === 0) return []
-
-  const competitorRows = await db
-    .select({ requestId: leads.requestId, total: count() })
-    .from(leads)
-    .where(
-      inArray(
-        leads.requestId,
-        rows.map((r) => r.requestId),
-      ),
-    )
-    .groupBy(leads.requestId)
-
-  const competitors = new Map(competitorRows.map((r) => [r.requestId, Number(r.total)]))
 
   // Harga unlock per tier + brand. Generic rules apply to all brands; brand-specific
   // rules override the tier default. The charge logic in `unlock.ts` applies the
@@ -278,7 +272,6 @@ export async function marketplaceLeads(
   return rows.map((row) => ({
     ...row,
     discountWanted: Number(row.discountWanted),
-    competitors: competitors.get(row.requestId) ?? 0,
     tokenCost: priceMap.get(`${row.tier}:${row.brand}`) ?? 5,
   }))
 }

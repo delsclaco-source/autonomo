@@ -2,8 +2,9 @@
 
 import { revalidatePath } from 'next/cache'
 import { getDb } from '@/lib/db'
-import { requests } from '@/lib/db/schema'
+import { auctions, requests } from '@/lib/db/schema'
 import { getSessionUser } from '@/lib/auth/session'
+import { AUCTION_DURATION_MS } from '@/lib/auction/queries'
 import { requestRateLimiter } from '@/lib/redis'
 import {
   parseRupiah,
@@ -93,32 +94,59 @@ export async function submitCarRequest(
   return {
     status: 'success',
     message: resolved.value.flaggedReason
-      ? 'Request terkirim dan sedang ditinjau tim kami sebelum tampil ke sales.'
-      : 'Request terkirim. Sales yang sanggup memenuhi target Anda akan menghubungi lewat WhatsApp.',
+      ? 'Request terkirim. Harga yang Anda minta di luar rentang diskon yang wajar, jadi request ini tidak dilelang — sales yang tertarik bisa menghubungi Anda langsung.'
+      : 'Request terkirim dan lelang dibuka 48 jam. Sales bersaing memberi diskon terdalam; yang menang menghubungi Anda lewat WhatsApp.',
   }
 }
 
 async function insertRequest(customerId: string, value: ResolvedRequest) {
-  await getDb()
-    .insert(requests)
-    .values({
-      customerId,
-      brand: value.brand,
-      model: value.model,
-      variant: value.variant,
-      // Both units are stored. The rupiah figures are what the customer actually
-      // typed and what the matching engine compares against `sales_offers`, which
-      // is also in rupiah; the percentage cannot be compared across models without
-      // the OTR. Freezing `list_price` keeps a later catalogue price change from
-      // rewriting what this request was asking for.
-      listPrice: value.listPrice,
+  // The request row and its auction are written together or not at all. An
+  // auction whose request never landed is unreachable; a request stuck in
+  // `auction` with no auction row can never be bid on and never closes, so it
+  // would sit invisible to both lanes forever.
+  await getDb().transaction(async (tx) => {
+    // A plausible target price opens an auction: sales users compete on margin
+    // and the deepest discount wins the contact, costing them no tokens. A
+    // flagged one skips straight to the token pool — nobody is going to bid
+    // margin against a price that is not real, but a sales user may still judge
+    // the buyer worth reaching, and there they pay tokens for the privilege.
+    const auctioned = !value.flaggedReason
+
+    const [row] = await tx
+      .insert(requests)
+      .values({
+        customerId,
+        brand: value.brand,
+        model: value.model,
+        variant: value.variant,
+        // Both units are stored. The rupiah figures are what the customer actually
+        // typed and what the matching engine compares against `sales_offers`, which
+        // is also in rupiah; the percentage cannot be compared across models without
+        // the OTR. Freezing `list_price` keeps a later catalogue price change from
+        // rewriting what this request was asking for.
+        listPrice: value.listPrice,
+        targetPrice: value.targetPrice,
+        // numeric columns take strings in drizzle-orm/pg to avoid float rounding.
+        discountWanted: value.discountWanted.toFixed(2),
+        tier: value.tier,
+        purchaseTimeframe: value.timeframe,
+        notes: value.notes,
+        status: auctioned ? 'auction' : 'pool',
+        flaggedReason: value.flaggedReason,
+      })
+      .returning({ id: requests.id })
+
+    if (!auctioned) return
+
+    // `targetPrice` and `listPrice` are copied, not joined at settlement time.
+    // The customer can edit their request later; the auction sales users are
+    // bidding into must not move underneath them.
+    await tx.insert(auctions).values({
+      requestId: row.id,
       targetPrice: value.targetPrice,
-      // numeric columns take strings in drizzle-orm/pg to avoid float rounding.
-      discountWanted: value.discountWanted.toFixed(2),
+      listPrice: value.listPrice,
       tier: value.tier,
-      purchaseTimeframe: value.timeframe,
-      notes: value.notes,
-      status: value.flaggedReason ? 'flagged' : 'open',
-      flaggedReason: value.flaggedReason,
+      closesAt: new Date(Date.now() + AUCTION_DURATION_MS),
     })
+  })
 }

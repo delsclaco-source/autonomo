@@ -37,8 +37,8 @@ export function CarCard({ model }: { model: CatalogEntry }) {
           alt={`Ilustrasi ${model.brand.name} ${model.name}`}
         />
 
-        {/* Meta chips are ink-on-white, not coloured badges: red on this card is
-            reserved for the price. */}
+        {/* Meta chips are ink-on-white, not coloured badges: the brand colour on
+            this card is reserved for the price. */}
         <div className="absolute left-0 top-0 flex items-center gap-3 px-4 pt-3.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-foreground-muted">
           {model.electric && <span className="text-primary">Listrik</span>}
           <span>{TIER_LABEL[model.tier]}</span>

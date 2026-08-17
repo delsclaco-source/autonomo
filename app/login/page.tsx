@@ -64,10 +64,15 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
     },
   }[area]
 
+  // Where "back" goes. On the sales subdomain the root bounces a signed-out
+  // visitor straight back here, so it points at the recruitment page instead —
+  // which is also the only page that explains what the account is for.
+  const backHref = area === 'sales' ? '/gabung' : '/'
+
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-12">
       <Link
-        href="/"
+        href={backHref}
         className="mb-6 inline-flex items-center gap-1.5 self-start text-sm font-medium text-foreground-muted transition-colors duration-200 hover:text-foreground"
       >
         <ArrowLeft width={15} height={15} aria-hidden="true" />

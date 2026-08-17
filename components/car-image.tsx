@@ -15,9 +15,11 @@ import type { BodyType } from '@/lib/data/catalog'
  * upright greenhouse. Hand-tuned paths drifted towards looking like the same
  * sedan five times, which is exactly the "every card is identical" problem.
  *
- * Colour follows the 60/20/20 budget: ink body on white, red reserved for the
- * tail lamp and the floor glow. Per-brand colour was removed on purpose — twelve
- * brand hues on one page is what broke the palette.
+ * Colour follows the 60/20/20 budget: ink body on white, with the brand colour
+ * reserved for the tail lamp and the floor glow. Both read it from
+ * `--color-primary`, so the illustration follows a repalette on its own.
+ * Per-brand colour was removed on purpose — twelve brand hues on one page is
+ * what broke the palette.
  *
  * When real photography arrives, add `photoUrl` to the catalog entry and render
  * next/image here, falling back to this silhouette.
@@ -177,9 +179,12 @@ export function CarImage({
     <div
       className={cn(
         'relative aspect-[16/10] w-full overflow-hidden bg-white',
-        // A single soft red wash anchored bottom-right: the only red on the
-        // image, and it doubles as the light source for the shadow below.
-        '[background-image:radial-gradient(90%_70%_at_78%_92%,rgba(212,0,0,0.10),transparent_62%)]',
+        // A single soft brand wash anchored bottom-right: the only colour on the
+        // image, and it doubles as the light source for the shadow below. Mixed
+        // from the token rather than written as a literal — this line was a
+        // hardcoded `rgba(212,0,0,…)` and silently kept the old red brand alive
+        // through the 2026-08-16 repalette.
+        '[background-image:radial-gradient(90%_70%_at_78%_92%,color-mix(in_srgb,var(--color-primary)_10%,transparent),transparent_62%)]',
         className,
       )}
     >
@@ -201,7 +206,7 @@ export function CarImage({
         <path d={rearGlass} className="fill-white/25" />
         <path d={frontGlass} className="fill-white/25" />
 
-        {/* Tail lamp — the one red detail on the car itself. */}
+        {/* Tail lamp — the one coloured detail on the car itself. */}
         <rect
           x={p.rear + 2}
           y={p.beltRearY + 10}

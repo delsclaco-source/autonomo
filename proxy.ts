@@ -21,11 +21,34 @@ import { safeNextPath } from '@/lib/auth/redirect'
  * every Server Function re-checks with `requireUser()` against the database.
  */
 
-/** Paths inside each area that do not require a session. */
-const PUBLIC_PATHS = ['/login', '/verify']
+/**
+ * Paths inside each area that do not require a session.
+ *
+ * `/gabung` is the sales marketing page. It has to be reachable without a
+ * cookie or the sales subdomain has no front door: a recruit who lands on
+ * sales.autonomo.id is redirected to a login form for an account nobody has
+ * told them how to get.
+ */
+const PUBLIC_PATHS = ['/login', '/verify', '/gabung']
+
+/**
+ * Public paths that also live *outside* any area namespace.
+ *
+ * `app/login/page.tsx` is one route serving all three areas — it reads the host
+ * itself to pick its copy. Prefixing it would rewrite sales.autonomo.id/login to
+ * `/sales/login`, which does not exist.
+ *
+ * `/gabung` is deliberately not in this list: it is sales-area content and lives
+ * at `app/(sales)/sales/gabung`, so it still needs the rewrite.
+ */
+const SHARED_PATHS = ['/login', '/verify']
+
+function matchesPath(list: readonly string[], pathname: string): boolean {
+  return list.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+}
 
 function isPublic(pathname: string): boolean {
-  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+  return matchesPath(PUBLIC_PATHS, pathname)
 }
 
 /**
@@ -91,8 +114,20 @@ export function proxy(request: NextRequest) {
 
   if (needsAuth && !hasSession) {
     const url = request.nextUrl.clone()
-    url.pathname = '/login'
     url.search = ''
+
+    // A signed-out visitor at the root of the sales subdomain is far more likely
+    // to be a recruit than someone who lost their session: they typed the bare
+    // hostname. Sending them to a login form for an account nobody has offered
+    // them is a dead end, so the root goes to the marketing page instead. Deep
+    // links (`/leads`, `/crm`) still go to login — whoever follows one already
+    // has an account and wants to land where they were headed.
+    if (area === 'sales' && pathname === '/') {
+      url.pathname = '/gabung'
+      return withSecurityHeaders(NextResponse.redirect(url))
+    }
+
+    url.pathname = '/login'
 
     const target = safeNextPath(pathname + search)
     if (target && target !== '/') {
@@ -106,11 +141,10 @@ export function proxy(request: NextRequest) {
     return withSecurityHeaders(NextResponse.next({ request: { headers: requestHeaders } }))
   }
 
-  // Public paths are shared routes that live at the top level (`app/login`), not
-  // inside an area namespace. Prefixing them would rewrite sales.autonomo.id/login
-  // to /sales/login, which does not exist. The page reads the host itself to pick
-  // its copy, so one route serves all three areas.
-  if (isPublic(pathname)) {
+  // Shared routes live at the top level (`app/login`), not inside an area
+  // namespace, so they must not be prefixed. Area-owned public pages like
+  // `/gabung` skip the auth check above but still get rewritten below.
+  if (matchesPath(SHARED_PATHS, pathname)) {
     return withSecurityHeaders(NextResponse.next({ request: { headers: requestHeaders } }))
   }
 
@@ -136,6 +170,9 @@ export const config = {
     /*
      * Run on everything except:
      * - api/webhooks  (payment callbacks; cross-subdomain by design)
+     * - api/cron      (Vercel Cron hits the apex host with no cookie; the
+     *                  rewrite would be a no-op anyway, and the route
+     *                  authenticates itself with CRON_SECRET)
      * - _next/static, _next/image  (build output)
      * - static asset extensions, anchored to the end of the path
      *
@@ -144,6 +181,6 @@ export const config = {
      * `autonomo.id/admin/users/a.b` skipped the proxy entirely, taking with it
      * both the wrong-host 404 and the CSP header.
      */
-    '/((?!api/webhooks|_next/static|_next/image|.*\\.(?:ico|png|jpe?g|gif|svg|webp|avif|woff2?|ttf|otf|eot|txt|xml|webmanifest|map)$).*)',
+    '/((?!api/webhooks|api/cron|_next/static|_next/image|.*\\.(?:ico|png|jpe?g|gif|svg|webp|avif|woff2?|ttf|otf|eot|txt|xml|webmanifest|map)$).*)',
   ],
 }

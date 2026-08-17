@@ -1,8 +1,9 @@
 import Link from 'next/link'
-import { LogOut, User } from 'lucide-react'
+import { ChevronRight, LogOut, User } from 'lucide-react'
 import { logoutAction } from '@/app/logout/actions'
 import { maskPhone } from '@/lib/auth/phone'
 import type { SessionUser } from '@/lib/auth/session'
+import type { NavItem } from '@/lib/config/nav'
 
 /**
  * Header account control.
@@ -16,8 +17,20 @@ import type { SessionUser } from '@/lib/auth/session'
  * The point of the panel is "am I logged in as the right account" — the last
  * three digits answer that, and the full number on screen in a public place does
  * not need to be readable over a shoulder.
+ *
+ * `links` holds the sections that did not fit the five-item bottom bar
+ * (`SALES_MENU_NAV`). They are ordinary links rather than nav items: no active
+ * state, because the menu is closed whenever the user is looking at the page.
  */
-export function AccountMenu({ user, dealer }: { user: SessionUser | null; dealer?: string | null }) {
+export function AccountMenu({
+  user,
+  dealer,
+  links = [],
+}: {
+  user: SessionUser | null
+  dealer?: string | null
+  links?: readonly NavItem[]
+}) {
   if (!user) {
     return (
       <Link
@@ -49,6 +62,27 @@ export function AccountMenu({ user, dealer }: { user: SessionUser | null; dealer
           <p className="tabular mt-0.5 text-xs text-foreground-muted">{maskPhone(user.phone)}</p>
           {dealer && <p className="mt-1 truncate text-xs text-foreground-muted">{dealer}</p>}
         </div>
+
+        {links.length > 0 && (
+          <ul className="border-b border-border py-1">
+            {links.map((item) => (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  className="flex min-h-11 items-center justify-between gap-2 px-4 text-sm font-medium text-foreground transition-colors duration-200 hover:bg-muted"
+                >
+                  {item.longLabel ?? item.label}
+                  <ChevronRight
+                    width={14}
+                    height={14}
+                    className="text-foreground-muted"
+                    aria-hidden="true"
+                  />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
 
         <form action={logoutAction}>
           <button

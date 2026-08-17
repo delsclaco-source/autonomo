@@ -13,13 +13,22 @@
  * Palette is a 60 / 20 / 20 split, set by the brand owner:
  *
  *   60%  white   — every page and card surface; the default state of the UI
- *   20%  red     — Rosso Corsa. Primary action, price savings, brand marks only
+ *   20%  blue    — electric blue. Primary action and the figure the user came for
  *   20%  black   — headings, dark bands, secondary actions, illustrations
  *
- * The ratio is a budget, not a suggestion: red belongs to the thing the user
+ * Two accents sit outside the split, on a strict budget: red for deal heat
+ * (badges that mean "this expires") and green for money saved. Neither may act
+ * as a surface or a border, and neither replaces blue as the action colour.
+ *
+ * The ratio is a budget, not a suggestion: blue belongs to the thing the user
  * should do next and to the number they came for (the discount). Spreading it
  * across borders, icons and headings is what makes a two-colour brand look
  * generic, so those stay ink or grey.
+ *
+ * Red was the action colour until 2026-08-16, when the homepage mockup in
+ * beranda-user.md was adopted as the visual direction. Token names and roles did
+ * not move — only their values — so every component recoloured without being
+ * edited. Red kept a narrower job: destructive states and deal-heat badges.
  *
  * This supersedes the generated purple/green palette in
  * design-system/autonomo-id/MASTER.md — that file was a placeholder produced
@@ -36,13 +45,15 @@
    * dark controls on top of a white UI. */
   color-scheme: light;
 
-  /* Brand — Rosso Corsa. #d40000 rather than the brighter #ff2800 because white
-   * text on it clears 4.5:1; the bright tone is kept for large decorative fills
-   * where contrast rules do not apply. */
-  --color-primary: #d40000;
-  --color-primary-hover: #a80000;
+  /* Brand — electric blue. 5.75:1 against white, so it can carry small text and
+   * links, not only fills; white on it clears the same bar. */
+  --color-primary: #0052ff;
+  --color-primary-hover: #0041cc;
   --color-on-primary: #ffffff;
-  --color-secondary: #ff2800;
+  /* Deal heat only: "Hot deal", "Promo terbatas", expiry badges. Not an action
+   * colour and not a second brand — the moment it appears on a button the page
+   * has two primaries and neither reads as one. */
+  --color-secondary: #bc0000;
 
   /* Accent is ink, not a third hue: the calm counterweight to the red. */
   --color-accent: #0b0b0c;
@@ -60,14 +71,23 @@
   --color-foreground-muted: #6b6b72;
 
   /* Lines & state.
-   * `destructive` deliberately equals the brand red — in a red-branded UI colour
-   * alone can never mark an error, so error states must also carry an icon and a
-   * text label. That is a WCAG requirement regardless, so nothing is lost. */
+   *
+   * `destructive` is no longer the brand colour. While the brand was red, an
+   * error and a primary button were the same hue, so colour alone could not mark
+   * a failure. Now red means one thing in the chrome. Errors still carry an icon
+   * and a text label — WCAG requires that either way.
+   *
+   * Two greens, because one tone cannot do both jobs. `success` is dark enough
+   * to carry text (5.3:1 on white) and owns every savings figure. `success-fill`
+   * is the brighter tone from the mockup and is legal only as a fill — status
+   * dots, badge backgrounds, icons with an adjacent label. It measures 2.4:1 on
+   * white, so text set in it is unreadable; never use it with `text-`. */
   --color-border: #e5e5e7;
-  --color-destructive: #d40000;
+  --color-destructive: #bc0000;
   --color-warning: #92400e;
-  --color-success: #15703f;
-  --color-ring: #d40000;
+  --color-success: #0c7a53;
+  --color-success-fill: #10b981;
+  --color-ring: #0052ff;
 
   /* Spacing — density 6/10 (standard) */
   --space-xs: 0.25rem;
@@ -119,10 +139,12 @@
   --ring: var(--color-ring);
   --radius: var(--radius-md);
 
-  /* Charts: red stepping down to ink, so a series ramp stays inside the brand. */
-  --chart-1: #d40000;
-  --chart-2: #f0523f;
-  --chart-3: #ff9d8a;
+  /* Charts: blue through green down to ink, so a series ramp stays inside the
+   * brand. Chart segments are large fills rather than text, which is why the
+   * brighter green is allowed a slot here. */
+  --chart-1: #0052ff;
+  --chart-2: #0c7a53;
+  --chart-3: #10b981;
   --chart-4: #6b6b72;
   --chart-5: #0b0b0c;
 
@@ -154,6 +176,7 @@
   --color-destructive: var(--color-destructive);
   --color-warning: var(--color-warning);
   --color-success: var(--color-success);
+  --color-success-fill: var(--color-success-fill);
   --color-ring: var(--color-ring);
 
   --radius-sm: var(--radius-sm);

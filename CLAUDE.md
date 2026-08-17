@@ -130,13 +130,19 @@ design-system/autonomo-id/MASTER.md
 
 ## 5. Skill & Plugin yang Terpasang
 
-- **ui-ux-pro-max** — panggil skill ini untuk setiap task yang menyentuh UI: styling, layout, pemilihan palet warna, font pairing, komponen (form request mobil, kartu hot lead, CRM dashboard, dsb). Design system sudah di-generate ke `design-system/autonomo-id/MASTER.md` — baca file itu dulu sebelum bikin komponen, jangan generate ulang kecuali brand berubah.
+- **ui-ux-pro-max** — panggil skill ini untuk setiap task yang menyentuh UI: styling, layout, pemilihan palet warna, font pairing, komponen (form request mobil, kartu hot lead, CRM dashboard, dsb). **Baca `design.md` lebih dulu, bukan MASTER.md.** `design.md` adalah design system terkunci, ditulis setelah MASTER.md, dan mengalahkannya soal genre, layout, ornamen, dan copy. `design-system/autonomo-id/MASTER.md` masih berguna untuk spacing, shadow, radius, dan daftar anti-pattern; bagian Style Guidelines dan Motion di dalamnya sudah ditandai superseded. Jangan generate ulang design system kecuali brand berubah.
 - Terpasang juga: `typescript-lsp`, `feature-dev` (agent `code-architect`/`code-explorer`/`code-reviewer`), `vercel-storage`.
 
-### Deviasi yang disengaja dari MASTER.md
-- **Warna surface kartu pakai putih**, bukan `#FAF5FF`. MASTER.md memberi nilai yang sama untuk background halaman dan background kartu, jadi kartu jadi tak terlihat. Token `--color-surface` dipisah untuk itu.
-- **Dark mode diturunkan sendiri** di `app/globals.css`; MASTER.md hanya mendefinisikan light mode.
-- Palet ungu+hijau adalah hasil generate ("trust purple + transaction green"), **bukan** brand asli. Ganti seluruh token di `:root` begitu asset brand Autonomo.id tersedia.
+### Palet aktual dan penyimpangan yang disengaja
+
+Nilai token hidup di satu tempat: `app/globals.css`. Jangan pernah menulis hex, `rgb()`, atau `oklch()` di dalam komponen — panggil nama tokennya.
+
+- **Palet: putih 60 / biru elektrik 20 / ink 20.** `--color-primary` = `#0052FF` (aksi berikutnya dan angka yang dicari user), `--color-accent` = `#0B0B0C` (band ink), surface putih. Diadopsi 2026-08-16 dari mockup `beranda-user.md`; sebelumnya merah Rosso Corsa `#d40000`. Yang berubah hanya nilai — nama dan peran token tidak bergeser, jadi 582 pemakaian class ikut berganti arti tanpa diedit. Komentar mana pun di repo yang masih menyebut `--color-primary` merah sudah basi, bukan otoritatif.
+- **Dua aksen di luar budget, satu tugas masing-masing.** `--color-secondary` = `#BC0000` untuk *deal heat* (badge kampanye, label kedaluwarsa), nilainya sama dengan `--color-destructive` — karena satu hue melayani dua makna, error wajib membawa ikon **dan** teks. `--color-success` = `#0C7A53` (5,3:1 di atas putih) satu-satunya hijau yang boleh membawa teks; `--color-success-fill` = `#10B981` cuma 2,4:1, jadi fill/titik/ikon saja. `text-success-fill` itu bug, bukan pilihan gaya.
+- **Surface kartu putih** — bukan `#FBF8FF` seperti mockup, bukan `#FAF5FF` seperti MASTER.md. Kalau background halaman dan background kartu bernilai sama, kartunya tak terlihat; `--color-surface` dipisah untuk itu.
+- **Light mode saja.** Dark mode dihapus di commit `5cc67f9` — keputusan produk, bukan kelalaian. Tidak ada varian `dark`, dan `color-scheme: light` menahan kontrol native tetap terang di perangkat ber-OS gelap. Jangan tambahkan kembali tanpa permintaan eksplisit.
+- **Font: Plus Jakarta Sans (heading) + Inter (body)**, dimuat lewat `next/font/google` di `app/layout.tsx`, self-hosted. Tidak ada keluarga ketiga dan tidak ada `@import` ke `fonts.googleapis.com`.
+- Palet ini hasil **adopsi mockup, bukan brand book**. Begitu asset brand resmi Autonomo.id tersedia, ganti nilai di `:root` — jangan ganti nama tokennya.
 
 ## 6. Struktur Data Inti
 

@@ -153,9 +153,9 @@ try {
   check('token cost from seeded rule', first.tokenCost, EXPECTED_COST)
   check('balance after', first.balanceAfter, START_BALANCE - EXPECTED_COST)
 
-  // Idempotency: the same sales user unlocking the same request must not be
-  // charged twice. UNIQUE(request_id, sales_id) is the backstop; this asserts the
-  // function reports it cleanly instead of surfacing a constraint violation.
+  // Idempotency: unlocking the same request twice must not charge twice.
+  // UNIQUE(request_id) is the backstop; this asserts the function reports the
+  // refusal cleanly instead of surfacing a constraint violation.
   const second = await unlockLead(sales.id, request.id)
   check('second unlock refused', second.ok === false && second.reason, 'already_unlocked')
 

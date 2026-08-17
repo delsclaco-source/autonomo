@@ -43,6 +43,43 @@ export const AREA_ROLES: Record<Area, readonly Role[]> = {
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'autonomo.id'
 
 /**
+ * Explicit host-to-area map, for deployments whose hostnames cannot express the
+ * subdomain shape the label rule below expects.
+ *
+ * A `*.vercel.app` deployment is exactly that case: Vercel reserves nested
+ * subdomains, so `sales.autonomo-id.vercel.app` cannot be claimed and the only
+ * name available is a flat one like `sales-autonomo-id.vercel.app` — whose first
+ * label is the entire name, not `sales`. Without this map the sales and admin
+ * areas are unreachable on the free domain.
+ *
+ * Bare hostnames, no port, no scheme. Leave all three unset on a deployment that
+ * owns real subdomains; the label rule then handles everything and this map costs
+ * one failed lookup per request.
+ *
+ * Read through static `process.env.X` references because `NEXT_PUBLIC_` values
+ * are inlined at build time — a computed key would come back undefined.
+ */
+const AREA_HOSTS: Record<Area, string | undefined> = {
+  customer: process.env.NEXT_PUBLIC_HOST_CUSTOMER,
+  sales: process.env.NEXT_PUBLIC_HOST_SALES,
+  admin: process.env.NEXT_PUBLIC_HOST_ADMIN,
+}
+
+/**
+ * Match a hostname against the configured map.
+ *
+ * `AREAS` order decides a duplicate — customer first, then sales, then admin — so
+ * a misconfiguration pointing two areas at one host resolves to the least
+ * privileged of them rather than the most.
+ */
+function areaFromHostMap(hostname: string): Area | null {
+  for (const area of AREAS) {
+    if (AREA_HOSTS[area]?.toLowerCase() === hostname) return area
+  }
+  return null
+}
+
+/**
  * Hosts allowed to resolve to a privileged area.
  *
  * Without this, a Host header of `sales.attacker.example` pointed at the
@@ -66,12 +103,20 @@ function isTrustedHost(hostname: string): boolean {
  * Returns `customer` for the apex, `www`, untrusted hosts, and anything
  * unrecognised — the safest default, since customer routes are the only public
  * ones. An unknown host can therefore never reach the admin shell.
+ *
+ * The explicit map is consulted before the label rule, but only after the trust
+ * check: order matters, because a mapped host must still be one this deployment
+ * accepts. Checking the map first would let a stale or mistyped env value name a
+ * host the trust rule was written to exclude.
  */
 export function areaFromHost(host: string | null): Area {
   if (!host) return 'customer'
 
   const hostname = host.split(':')[0].toLowerCase()
   if (!isTrustedHost(hostname)) return 'customer'
+
+  const mapped = areaFromHostMap(hostname)
+  if (mapped) return mapped
 
   const label = hostname.split('.')[0]
   if (label === 'sales') return 'sales'

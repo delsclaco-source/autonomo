@@ -18,11 +18,12 @@ import type { Area } from './subdomains'
 export type NavIcon =
   | 'home'
   | 'catalog'
-  | 'plus'
+  | 'requests'
   | 'discount'
-  | 'account'
   | 'dashboard'
   | 'leads'
+  | 'auction'
+  | 'offers'
   | 'crm'
   | 'token'
   | 'referral'
@@ -39,22 +40,27 @@ export type NavItem = {
    * would highlight on every page in the section.
    */
   exact?: boolean
-  /** Render as the raised centre action. At most one per bar. */
-  emphasis?: boolean
 }
 
 /**
- * Customer bar.
+ * Customer bar — the four tabs of `mobile-user.md`, in its order.
  *
- * The centre slot is "Request" because that is the one thing the product needs a
- * buyer to do; everything else on this bar is a way of deciding what to request.
+ * The mockup's bar has no raised centre action, so neither does this. The item
+ * that used to occupy that slot was `/request/baru`, and dropping it from the
+ * chrome costs nothing: the form is linked from the landing card, from every
+ * catalogue and promo card, from `/top-diskon`, and from `/request` itself. A
+ * request starts from a car the buyer is looking at, not from a plus button that
+ * opens an empty form.
+ *
+ * Labels stay Indonesian. The mockup's own body copy is Indonesian and its nav
+ * labels are not ("Home", "Catalog", "Requests", "Deals") — leftover template
+ * text from the generator, not a language decision to copy.
  */
 export const CUSTOMER_NAV: readonly NavItem[] = [
   { href: '/', label: 'Beranda', icon: 'home', exact: true },
   { href: '/katalog', label: 'Katalog', icon: 'catalog' },
-  { href: '/request/baru', label: 'Request', longLabel: 'Buat request', icon: 'plus', emphasis: true },
+  { href: '/request', label: 'Request', longLabel: 'Request saya', icon: 'requests', exact: true },
   { href: '/top-diskon', label: 'Diskon', longLabel: 'Top diskon', icon: 'discount' },
-  { href: '/request', label: 'Saya', longLabel: 'Request saya', icon: 'account', exact: true },
 ]
 
 /**
@@ -64,6 +70,17 @@ export const CUSTOMER_NAV: readonly NavItem[] = [
  * happens inside the leads list, not from the chrome. Ordered by how often the
  * screen is opened during a working day, left to right.
  *
+ * At the five-item ceiling. Referral is not here — it is a one-time setup task,
+ * not a daily screen, so it lives in the account menu; anything added later has
+ * to displace an item rather than extend the row.
+ *
+ * Token top-up was the item displaced when Lelang arrived. Top-up is occasional
+ * — a sales user does it when the balance runs low, a few times a month — while
+ * an open auction is time-boxed and has to be checked daily or it closes without
+ * them. The balance itself is still on the dashboard header, so nothing about
+ * the token economy became harder to see; only the purchase screen moved one tap
+ * further away.
+ *
  * Hrefs carry no `/sales` prefix. The user is already on sales.autonomo.id, so
  * the visible URL is `/leads`; `proxy.ts` rewrites it to the internal
  * `/sales/leads` route. Putting the prefix here too would produce
@@ -71,10 +88,21 @@ export const CUSTOMER_NAV: readonly NavItem[] = [
  */
 export const SALES_NAV: readonly NavItem[] = [
   { href: '/', label: 'Home', longLabel: 'Dashboard', icon: 'dashboard', exact: true },
+  { href: '/lelang', label: 'Lelang', longLabel: 'Lelang aktif', icon: 'auction' },
   { href: '/leads', label: 'Leads', longLabel: 'Hot leads', icon: 'leads' },
+  { href: '/offers', label: 'Produk', longLabel: 'Penawaran saya', icon: 'offers' },
   { href: '/crm', label: 'CRM', icon: 'crm' },
-  { href: '/topup', label: 'Token', icon: 'token' },
-  { href: '/referral', label: 'Referral', icon: 'referral' },
+]
+
+/**
+ * Sales items that did not fit the bar, shown in the account menu instead.
+ *
+ * Same shape as `SALES_NAV` so the menu can render them with the same icon
+ * lookup; kept separate so nothing accidentally pushes the bar past five.
+ */
+export const SALES_MENU_NAV: readonly NavItem[] = [
+  { href: '/topup', label: 'Token', longLabel: 'Top-up token', icon: 'token' },
+  { href: '/referral', label: 'Referral', longLabel: 'Kode referral', icon: 'referral' },
 ]
 
 export function navFor(area: Area): readonly NavItem[] {

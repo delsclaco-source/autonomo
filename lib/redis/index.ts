@@ -32,13 +32,37 @@ export const cacheKey = {
   otpCode: (phone: string) => `otp:code:${phone}`,
   topDiscount: (brand: string) => `top-discount:${brand.toLowerCase()}`,
   topDiscountAll: () => 'top-discount:all',
+  /**
+   * Deduped promo list for the customer homepage. Deliberately not one of the
+   * `topDiscount*` keys: this holds `sales_offers` rows (brand, model, rupiah
+   * discount), while those hold brand rankings out of `top_discount`. One key
+   * serving two shapes fails silently the day the second consumer ships.
+   */
+  homeOffers: () => 'offers:home',
+  /**
+   * Proof that a number passed OTP verification, held under an opaque random id.
+   *
+   * Separate from `otpCode` because it has to outlive it: verification consumes
+   * the code, so a form that verifies in one submission and writes in the next
+   * needs something else to carry the result. Keyed by the ticket id, not by
+   * phone — the value is what identifies the number, so nothing a client posts
+   * can be used to look up somebody else's verification.
+   */
+  otpTicket: (id: string) => `otp:ticket:${id}`,
   webhookSeen: (provider: string, eventId: string) => `webhook:${provider}:${eventId}`,
 } as const
 
 /** TTLs in seconds. */
 export const cacheTtl = {
   otpCode: 5 * 60,
+  /**
+   * Longer than the code, because it starts where the code ends: the buyer has
+   * proved the number and still has to finish choosing a car. Short enough that a
+   * ticket left behind in a closed tab is worthless within the quarter hour.
+   */
+  otpTicket: 15 * 60,
   topDiscount: 45,
+  homeOffers: 45,
   webhookSeen: 7 * 24 * 60 * 60,
 } as const
 
@@ -99,4 +123,30 @@ export function requestRateLimiter(): Ratelimit {
     })
   }
   return _requestLimiter
+}
+
+let _bidLimiter: Ratelimit | null = null
+
+/**
+ * 1 auction bid per sales user per 10 seconds.
+ *
+ * Bids cost no tokens, so nothing else makes them expensive. Without a floor on
+ * how fast they can arrive, a script can shave the leader by one rupiah in a loop
+ * and turn an auction into a latency contest. Ten seconds is short enough that a
+ * person typing a real number never notices it, and long enough that shaving
+ * stops being free.
+ *
+ * Keyed by sales user id, not IP: bidders are always authenticated, and several
+ * sales users at the same dealership share one office address.
+ */
+export function bidRateLimiter(): Ratelimit {
+  if (!_bidLimiter) {
+    _bidLimiter = new Ratelimit({
+      redis: getRedis(),
+      limiter: Ratelimit.slidingWindow(1, '10 s'),
+      prefix: 'rl:bid',
+      analytics: false,
+    })
+  }
+  return _bidLimiter
 }

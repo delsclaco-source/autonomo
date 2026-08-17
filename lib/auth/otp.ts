@@ -1,5 +1,5 @@
 import 'server-only'
-import { createHmac, randomInt, timingSafeEqual } from 'node:crypto'
+import { createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto'
 import { getRedis, cacheKey, cacheTtl } from '@/lib/redis'
 import { sendWhatsappMessage, isWhatsappConfigured } from '@/lib/whatsapp/client'
 import { OTP_CODE_LENGTH, OTP_RESEND_COOLDOWN_SECONDS } from './otp-shared'
@@ -25,6 +25,10 @@ import { OTP_CODE_LENGTH, OTP_RESEND_COOLDOWN_SECONDS } from './otp-shared'
  *   - verify attempt cap (5 per issued code) — a 6-digit code is 1-in-a-million
  *     only if the attacker cannot try a million times. On the cap the code is
  *     deleted, so brute force costs a fresh send and hits the send limit.
+ *
+ * Verification is consumed on success, so a flow that verifies and writes in two
+ * separate submissions gets a ticket to carry the result across — see
+ * `issueVerificationTicket` at the bottom of this file.
  */
 
 const CODE_LENGTH = OTP_CODE_LENGTH
@@ -79,6 +83,22 @@ function message(code: string): string {
 }
 
 /**
+ * Prototype escape hatch: return the OTP to the browser instead of sending it.
+ *
+ * This is not a degraded login. It is no login at all — the code is handed to
+ * whoever typed the number, so anyone who knows a user's WhatsApp number can sign
+ * in as that user, admin included. It exists because the WhatsApp gateway is not
+ * available yet and the deployment still has to be demonstrable.
+ *
+ * Deliberately a separate variable from the NODE_ENV check below, and deliberately
+ * not defaulted on: turning it on in production has to be something somebody typed,
+ * once, on purpose. Delete the variable the moment real gateway credentials exist.
+ */
+function isOnScreenOtpEnabled(): boolean {
+  return process.env.DEMO_OTP_ON_SCREEN === '1'
+}
+
+/**
  * Issue a code and deliver it over WhatsApp.
  *
  * `phone` must already be canonical (`628…`). The code is only persisted after
@@ -98,9 +118,10 @@ export async function sendOtp(phone: string): Promise<OtpSendResult> {
 
   // In development without gateway credentials the code is returned to the caller
   // instead of being sent, so the flow is testable. Guarded on NODE_ENV so a
-  // missing key in production fails loudly rather than printing codes to users.
+  // missing key in production fails loudly rather than printing codes to users —
+  // unless DEMO_OTP_ON_SCREEN says the operator wants exactly that.
   if (!isWhatsappConfigured()) {
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === 'production' && !isOnScreenOtpEnabled()) {
       return { ok: false, reason: 'gateway', detail: 'not_configured' }
     }
     await persist(phone, code)
@@ -158,3 +179,44 @@ export async function verifyOtp(phone: string, submitted: string): Promise<OtpVe
 }
 
 export { OTP_CODE_LENGTH, OTP_RESEND_COOLDOWN_SECONDS }
+
+/**
+ * Proof of verification that outlives the code it came from.
+ *
+ * `verifyOtp` consumes the code, so the moment a number is proved there is nothing
+ * left on the server saying so. A form that verifies in one submission and writes
+ * in a later one — press "Verifikasi", then press "Kirim" — needs a second artefact
+ * to carry that result across, and this is it.
+ *
+ * What the ticket maps to is a **user id the server resolved itself**, never a value
+ * the client sent. That is the whole security property: the write path reads whose
+ * request it is creating out of Redis, so nobody can verify one number and then
+ * submit under another by editing a form field. A ticket is therefore worth exactly
+ * one row for one already-proved number, and reveals no number to whoever holds it.
+ *
+ * Single-use through GETDEL, which reads and deletes in one round trip. A `get`
+ * followed by a `del` leaves a window where two submissions arriving together both
+ * see a live ticket and both write.
+ *
+ * Not a session, and deliberately not shaped like one: no cookie, no role, no
+ * renewal, and it expires in minutes. It authorises one insert and nothing else.
+ */
+export async function issueVerificationTicket(userId: string): Promise<string> {
+  // 32 bytes from the CSPRNG, the same size as a session id — a ticket is a bearer
+  // token for one write, so it has to be unguessable, not merely unique.
+  const id = randomBytes(32).toString('base64url')
+  await getRedis().set(cacheKey.otpTicket(id), userId, { ex: cacheTtl.otpTicket })
+  return id
+}
+
+/**
+ * Redeem a ticket, returning the user id it was issued for.
+ *
+ * `null` covers every failure the same way — never issued, already used, expired,
+ * or invented — because the caller has the same response to all four: verify again.
+ */
+export async function consumeVerificationTicket(ticket: string): Promise<string | null> {
+  if (!ticket) return null
+  const userId = await getRedis().getdel<string>(cacheKey.otpTicket(ticket))
+  return userId ?? null
+}

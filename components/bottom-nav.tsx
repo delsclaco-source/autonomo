@@ -3,15 +3,15 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  BadgePercent,
+  Car,
+  ClipboardList,
   Coins,
+  Gavel,
   Gift,
   Home,
-  LayoutGrid,
   ListChecks,
-  Plus,
   Sparkles,
-  User,
+  Tag,
   Users,
 } from 'lucide-react'
 import { isActive, type NavIcon, type NavItem } from '@/lib/config/nav'
@@ -24,28 +24,45 @@ import { isActive, type NavIcon, type NavItem } from '@/lib/config/nav'
  * thumb zone rather than behind a hamburger. Hidden from `md:` up, where the
  * horizontal bar in the header takes over.
  *
- * Three things here are load-bearing and easy to lose in a redesign:
+ * Rebuilt 2026-08-17 to the bar in `mobile-user.md`: a 64px row of 48px tabs laid
+ * out `justify-around`, a 24px icon over a 12px/14px label, a translucent surface
+ * under a heavy blur, and an upward shadow in place of a top border. Active state
+ * is colour only, as in the mockup.
  *
- *   - `pb-[env(safe-area-inset-bottom)]` keeps the row clear of the iOS home
- *     indicator. Without it the bottom ~34px of every tab is unreachable.
- *   - each tab is `min-h-14` (56px) against the 44px minimum, because a bar
- *     pinned to the screen edge is the hardest thing on a page to hit precisely.
- *   - the active tab carries a colour *and* a filled indicator bar. Colour alone
- *     fails for the ~8% of men with red-green deficiency, and this palette's
- *     accent is red.
+ * Two of the mockup's choices are safe here that would not have been earlier:
  *
- * The layout must reserve the space this occupies (`pb-24 md:pb-0` on `main`) —
- * a fixed bar over unpadded content hides the last rows of every page.
+ *   - **No second, non-colour active signal.** The previous bar carried an
+ *     indicator rail because the accent was red and hue alone fails red-green
+ *     deficiency. The accent is now `#0052FF` against `#6b6b72` — that pair
+ *     differs in hue *and* lightness, so it survives greyscale. `aria-current`
+ *     carries the state for assistive tech either way.
+ *   - **48px tabs where the old bar reserved 56px.** The row is 64px and each tab
+ *     centres in it, so the touch surface is 48px tall with 8px of quiet edge
+ *     above and below — still clear of the 44px floor.
+ *
+ * Two things remain load-bearing and are easy to lose in a redesign:
+ *
+ *   - `pb-[env(safe-area-inset-bottom)]` (the mockup's `pb-safe`) keeps the row
+ *     off the iOS home indicator. Without it the bottom ~34px of every tab is
+ *     unreachable.
+ *   - the layout must reserve the height this occupies (`pb-24` on `main`) — a
+ *     fixed bar over unpadded content hides the last rows of every page.
+ *
+ * Tabs are `flex-1`, not the mockup's fixed `w-16`. Identical geometry for the
+ * four-item customer bar — `justify-around` places equal-width items exactly
+ * where equal columns do — and it keeps the five-item sales bar from overflowing
+ * a 320px screen, which no amount of fidelity is worth (design.md §8).
  */
 
 const ICONS: Record<NavIcon, React.ComponentType<{ width?: number; height?: number; className?: string }>> = {
   home: Home,
-  catalog: LayoutGrid,
-  plus: Plus,
-  discount: BadgePercent,
-  account: User,
+  catalog: Car,
+  requests: ClipboardList,
+  discount: Tag,
   dashboard: Sparkles,
   leads: Users,
+  auction: Gavel,
+  offers: Car,
   crm: ListChecks,
   token: Coins,
   referral: Gift,
@@ -57,50 +74,24 @@ export function BottomNav({ items }: { items: readonly NavItem[] }) {
   return (
     <nav
       aria-label="Navigasi utama"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 backdrop-blur md:hidden"
+      className="fixed inset-x-0 bottom-0 z-50 bg-surface/80 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_8px_rgb(0_0_0/0.04)] backdrop-blur-xl md:hidden"
     >
-      <ul className="mx-auto flex max-w-lg items-stretch px-1 pb-[env(safe-area-inset-bottom)]">
+      <ul className="flex h-16 items-center justify-around px-4">
         {items.map((item) => {
           const active = isActive(item, pathname)
           const Icon = ICONS[item.icon]
 
-          if (item.emphasis) {
-            return (
-              <li key={item.href} className="flex flex-1 justify-center">
-                {/* Raised centre action. Lifted out of the row so it reads as the
-                    one thing to do here, not as a fifth peer tab. */}
-                <Link
-                  href={item.href}
-                  aria-current={active ? 'page' : undefined}
-                  className="group -mt-4 flex w-full flex-col items-center gap-1 pb-1.5"
-                >
-                  <span className="flex size-12 items-center justify-center rounded-full bg-primary text-on-primary shadow-lg shadow-primary/25 ring-4 ring-surface transition-transform duration-200 group-active:scale-95">
-                    <Icon width={22} height={22} />
-                  </span>
-                  <span className="text-[10px] font-semibold text-foreground">{item.label}</span>
-                </Link>
-              </li>
-            )
-          }
-
           return (
-            <li key={item.href} className="flex-1">
+            <li key={item.href} className="flex flex-1 justify-center">
               <Link
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
-                className={`relative flex min-h-14 flex-col items-center justify-center gap-1 px-1 transition-colors duration-200 ${
+                className={`flex h-12 w-full flex-col items-center justify-center gap-1 transition-all duration-200 ${
                   active ? 'text-primary' : 'text-foreground-muted active:text-foreground'
                 }`}
               >
-                {/* Second, non-colour signal for the active tab. */}
-                <span
-                  aria-hidden="true"
-                  className={`absolute inset-x-3 top-0 h-0.5 rounded-full transition-opacity duration-200 ${
-                    active ? 'bg-primary opacity-100' : 'opacity-0'
-                  }`}
-                />
-                <Icon width={20} height={20} />
-                <span className="text-[10px] font-medium leading-none">{item.label}</span>
+                <Icon width={24} height={24} />
+                <span className="text-xs font-medium leading-[14px]">{item.label}</span>
               </Link>
             </li>
           )

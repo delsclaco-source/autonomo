@@ -22,6 +22,27 @@
       "when": 1786264273842,
       "tag": "0002_warm_angel",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786365180466,
+      "tag": "0003_icy_agent_zero",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786365756549,
+      "tag": "0004_loving_prima",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786895137381,
+      "tag": "0005_yellow_ultron",
+      "breakpoints": true
     }
   ]
 }

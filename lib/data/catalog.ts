@@ -19,6 +19,25 @@ import type { CarTier } from '@/lib/db/schema'
 
 export type BodyType = 'citycar' | 'hatchback' | 'sedan' | 'suv' | 'mpv'
 
+/**
+ * Body types in the order a buyer scans them, with Indonesian labels.
+ *
+ * A narrowing control only. `bodyType` is a catalogue attribute, not a column on
+ * `requests` — the hero form uses this to shorten the model list, and it is not
+ * carried into the query string because there is nowhere for it to land.
+ *
+ * Fuel type is deliberately absent. `electric` is a separate axis (a BEV can be
+ * a hatchback or an SUV), so folding "EV" in here as a sixth option would make
+ * the two mutually exclusive when they are not.
+ */
+export const BODY_TYPES: { value: BodyType; label: string }[] = [
+  { value: 'suv', label: 'SUV' },
+  { value: 'mpv', label: 'MPV' },
+  { value: 'sedan', label: 'Sedan' },
+  { value: 'hatchback', label: 'Hatchback' },
+  { value: 'citycar', label: 'City car' },
+]
+
 export type CarModel = {
   slug: string
   name: string
@@ -514,4 +533,21 @@ export function formatRupiah(value: number): string {
     return `Rp${miliar.toFixed(miliar % 1 === 0 ? 0 : 2).replace('.', ',')} M`
   }
   return `Rp${Math.round(value / 1_000_000)} jt`
+}
+
+/**
+ * Full-digit rupiah: `Rp292.500.000`.
+ *
+ * `formatRupiah` above abbreviates to `Rp292 jt`, which is right for dense
+ * tables and price ladders but wrong where the exact figure is the point — a
+ * promo card claiming a discount has to show the number the customer will hold
+ * the sales user to, and `Rp292.499.000` abbreviates to the same `Rp292 jt`.
+ *
+ * Rounded to whole rupiah: `Intl` would otherwise print `,00` on every price,
+ * and no car is quoted in cents.
+ */
+const rupiahFull = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 })
+
+export function formatRupiahFull(value: number): string {
+  return `Rp${rupiahFull.format(Math.round(value))}`
 }

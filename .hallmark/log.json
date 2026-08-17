@@ -1,0 +1,28 @@
+{
+  "entries": [
+    {
+      "scope": "app",
+      "verb": "redesign",
+      "target": "app/(sales)/**",
+      "genre": "editorial-catalogue",
+      "macrostructure": "section-index",
+      "designSystem": "design.md",
+      "theme": "project-tokens (app/globals.css)",
+      "fonts": {
+        "display": "Plus Jakarta Sans (--font-jakarta)",
+        "body": "Inter (--font-inter)"
+      },
+      "motion": "motion-cut (CSS transitions only, 150-200ms, colour/opacity/transform)",
+      "pages": [
+        "app/(sales)/sales/gabung/page.tsx",
+        "app/(sales)/sales/(app)/page.tsx",
+        "app/(sales)/sales/(app)/leads/page.tsx",
+        "app/(sales)/sales/(app)/crm/page.tsx",
+        "app/(sales)/sales/(app)/offers/page.tsx",
+        "app/(sales)/sales/(app)/topup/page.tsx",
+        "app/(sales)/sales/(app)/referral/page.tsx"
+      ],
+      "notes": "Multi-page redesign under a locked design.md, so the diversification rule is inverted: every page shares one macrostructure, one page-head pattern, one card definition, one red budget. The report pattern (shadowed metric tiles) was replaced with the tool pattern (one ink slab plus rule-separated cells) on the dashboard, offers, topup and referral. Verified: lint, typecheck and next build all clean."
+    }
+  ]
+}

@@ -27,12 +27,29 @@ import {
 
 export const roleEnum = pgEnum('role', ['customer', 'sales', 'admin'])
 export const carTierEnum = pgEnum('car_tier', ['low', 'mid', 'high'])
+/**
+ * Request lifecycle. Two acquisition lanes, and the status says which one a
+ * request is in:
+ *
+ *  - `auction` — sales users compete on discount; the winner gets the contact for
+ *    zero tokens. Set at creation when the customer named a plausible target price.
+ *  - `pool` — buyable with tokens by the first sales user who pays. Set at creation
+ *    when the request was flagged (implausible discount), or on settlement when an
+ *    auction closed with no valid bid, or when a winner's lead was revoked for
+ *    never making contact.
+ *  - `claimed` — owned by exactly one sales user, whichever lane produced it.
+ *
+ * `open` predates both lanes. It is not written by new code; rows still carrying it
+ * are treated as `pool` so they stay buyable rather than becoming invisible.
+ */
 export const requestStatusEnum = pgEnum('request_status', [
   'open',
   'claimed',
   'closed',
   'expired',
   'flagged',
+  'auction',
+  'pool',
 ])
 /**
  * Lead pipeline. `contacted` sits between `pending` and `negotiation` because the
@@ -114,7 +131,44 @@ export const notificationKindEnum = pgEnum('notification_kind', [
   'referral_bonus',
   'premium_expiring',
   'verification_update',
+  'auction_outbid',
+  'auction_won',
+  'auction_lost',
+  'auction_closing',
 ])
+
+/**
+ * Which lane produced a lead.
+ *
+ * `auction` — won by offering the deepest discount; costs zero tokens.
+ * `pool` — bought with tokens by the first sales user to pay.
+ *
+ * Kept as a column rather than inferred from `token_cost = 0`, because an admin
+ * adjustment could one day zero out a pool lead's cost and the two would become
+ * indistinguishable.
+ */
+export const leadSourceEnum = pgEnum('lead_source', ['auction', 'pool'])
+
+/**
+ * Auction lifecycle.
+ *
+ * `open` — accepting bids. `awarded` — a winner was picked and a lead written.
+ * `no_bids` — closed with nothing valid; the request falls through to the pool.
+ * `cancelled` — the customer withdrew, or an admin voided it.
+ */
+export const auctionStatusEnum = pgEnum('auction_status', [
+  'open',
+  'awarded',
+  'no_bids',
+  'cancelled',
+])
+
+/**
+ * Per-sales standing in one auction. `flagged` removes an entry from the
+ * comparator without erasing its bid history — the bids stay in `auction_bids`
+ * for the audit trail.
+ */
+export const auctionEntryStatusEnum = pgEnum('auction_entry_status', ['valid', 'flagged'])
 
 /** Activity timeline entries for a lead. */
 export const leadActivityKindEnum = pgEnum('lead_activity_kind', [
@@ -256,6 +310,24 @@ export const requests = pgTable(
     city: text('city'),
     province: text('province'),
     purchaseTimeframe: text('purchase_timeframe'),
+    /**
+     * Optional lead qualifiers: `personal`/`corporate` and `cash`/`credit`. Both
+     * nullable, because a buyer who answers neither still has a complete request —
+     * these narrow what kind of work the deal is, they are not part of it.
+     *
+     * `text` rather than an enum for the same reason `purchase_timeframe` is text:
+     * the closed list lives in lib/validation/request.ts, and adding a third
+     * payment scheme there should not need a CREATE TYPE migration on a column
+     * nothing joins on.
+     *
+     * A sales user reads these to judge whether a lead is worth tokens — a fleet
+     * purchase runs a different process, and a credit deal earns the dealer
+     * leasing commission a cash deal does not. Neither ever feeds `tier`,
+     * `token_cost` or the fraud flag, so claiming to be a company cannot make a
+     * lead cheaper to unlock.
+     */
+    buyerType: text('buyer_type'),
+    paymentScheme: text('payment_scheme'),
     notes: text('notes'),
     status: requestStatusEnum('status').notNull().default('open'),
     /** Set when discount_wanted exceeds the fraud threshold (see CLAUDE.md § 7). */
@@ -283,6 +355,22 @@ export const leads = pgTable(
     /** Tier and cost are frozen at unlock time so later pricing changes don't rewrite history. */
     tier: carTierEnum('tier').notNull(),
     tokenCost: integer('token_cost').notNull(),
+    /**
+     * Which lane produced this lead. The auction lane writes `token_cost: 0` — no
+     * balance moves, so no ledger row is owed; the invariant is "every balance
+     * mutation needs a ledger row", and here there is no mutation.
+     *
+     * Defaults to `pool` so rows written before the auction existed keep their
+     * meaning: every one of them was bought with tokens.
+     */
+    source: leadSourceEnum('source').notNull().default('pool'),
+    /**
+     * The price the winning sales user committed to in the auction, frozen at
+     * settlement. Null on the pool lane, where nothing was promised. This is what
+     * the customer can hold the sales user to; dishonouring it costs rating and
+     * the verified badge.
+     */
+    committedPrice: bigint('committed_price', { mode: 'number' }),
     unlockedAt: timestamp('unlocked_at', { withTimezone: true }).notNull().defaultNow(),
     status: leadStatusEnum('status').notNull().default('pending'),
     internalNotes: text('internal_notes'),
@@ -296,9 +384,18 @@ export const leads = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    // One sales user pays for a given request at most once. This is the DB-level
-    // backstop against double-spend, independent of the application lock.
-    uniqueIndex('leads_request_sales_key').on(t.requestId, t.salesId),
+    // One request is owned by at most one sales user, always — whichever lane
+    // produced the lead (auction award, pool unlock). This is the database-level
+    // guarantee behind "satu data, satu sales": a second award or unlock for the
+    // same request is impossible even under a race, so a customer can never be
+    // contacted by two sales users about the same request. The application still
+    // locks first (`lib/sales/unlock.ts`); this index is the backstop.
+    //
+    // It replaced UNIQUE(request_id, sales_id), which only prevented the same
+    // sales user paying twice. The composite is not kept alongside it: it was the
+    // only index over `leads.request_id`, and a single-column unique index over
+    // that same leading column serves every lookup the composite did.
+    uniqueIndex('leads_request_key').on(t.requestId),
     index('leads_sales_status_idx').on(t.salesId, t.status),
     index('leads_sales_unlocked_idx').on(t.salesId, t.unlockedAt),
     // Follow-Up Center reads "my leads, soonest due first"; the index matches that shape.
@@ -616,6 +713,144 @@ export const leadActivities = pgTable(
 )
 
 // ---------------------------------------------------------------------------
+// Auctions
+// ---------------------------------------------------------------------------
+
+/**
+ * One reverse auction per customer request.
+ *
+ * Sales users compete by offering a lower price; the lowest price wins the
+ * contact for zero tokens. The two rules the product asks for — "deepest
+ * discount wins" and "if nobody meets the target, closest to the target wins" —
+ * collapse into a single comparator, because when someone does meet the target
+ * the deepest discount *is* the lowest price, and when nobody does, every bid
+ * sits above the target so closest *is* lowest:
+ *
+ *   ORDER BY best_price ASC, best_price_at ASC LIMIT 1
+ *
+ * No branch, so there is no gap where the two rules disagree about which one
+ * applies.
+ *
+ * This row is also the mutex for its request. Every path that can hand a request
+ * to a sales user — `placeBid`, `settleAuction`, and the token-paid
+ * `unlockLead` — takes `SELECT ... FOR UPDATE` on it before touching `requests`.
+ * The global lock order is `sales_profile → auctions → requests` and must not be
+ * reversed by any caller. That is what stops a pool purchase from stealing a
+ * running auction, and stops a settlement from awarding a request somebody just
+ * bought: both queue on this row, and the loser re-reads the new status and
+ * gives up.
+ */
+export const auctions = pgTable(
+  'auctions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    requestId: uuid('request_id')
+      .notNull()
+      .references(() => requests.id, { onDelete: 'cascade' }),
+    /**
+     * Copied from the request at creation, not joined at read time. The customer
+     * can edit their request; the auction sales users bid into must not move
+     * underneath them.
+     */
+    targetPrice: bigint('target_price', { mode: 'number' }).notNull(),
+    listPrice: bigint('list_price', { mode: 'number' }),
+    tier: carTierEnum('tier').notNull(),
+    status: auctionStatusEnum('status').notNull().default('open'),
+    opensAt: timestamp('opens_at', { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * Moves forward on soft close: a new best bid inside the last 5 minutes
+     * extends the deadline by 5 minutes. Without that, the auction is won by
+     * whoever's clock is most accurate rather than whoever's price is best.
+     */
+    closesAt: timestamp('closes_at', { withTimezone: true }).notNull(),
+    /** Extensions granted so far. Capped at 6 so an auction cannot run forever. */
+    extensionCount: integer('extension_count').notNull().default(0),
+    winnerSalesId: uuid('winner_sales_id').references(() => users.id, { onDelete: 'set null' }),
+    winningPrice: bigint('winning_price', { mode: 'number' }),
+    settledAt: timestamp('settled_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // One auction per request. Re-auctioning a request that fell through to the
+    // pool would need a new row, and this says that cannot happen by accident.
+    uniqueIndex('auctions_request_key').on(t.requestId),
+    // The cron sweep asks exactly one question: which open auctions are due?
+    index('auctions_status_closes_idx').on(t.status, t.closesAt),
+    index('auctions_winner_idx').on(t.winnerSalesId),
+  ],
+)
+
+/**
+ * One row per sales user per auction — the current standing, not the history.
+ *
+ * Kept as a separate cache from `auction_bids` so the comparator reads one row
+ * per competitor instead of aggregating every bid ever placed. `bestPriceAt`
+ * only moves when the price actually improves, because it is the tiebreaker:
+ * between two identical prices, the one offered first wins.
+ */
+export const auctionEntries = pgTable(
+  'auction_entries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    auctionId: uuid('auction_id')
+      .notNull()
+      .references(() => auctions.id, { onDelete: 'cascade' }),
+    salesId: uuid('sales_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    bestPrice: bigint('best_price', { mode: 'number' }).notNull(),
+    bestPriceAt: timestamp('best_price_at', { withTimezone: true }).notNull().defaultNow(),
+    bidCount: integer('bid_count').notNull().default(1),
+    status: auctionEntryStatusEnum('status').notNull().default('valid'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // A sales user holds exactly one standing per auction; bids upsert into it.
+    uniqueIndex('auction_entries_auction_sales_key').on(t.auctionId, t.salesId),
+    // Column order matches the comparator so picking the winner is index-only.
+    index('auction_entries_rank_idx').on(t.auctionId, t.status, t.bestPrice, t.bestPriceAt),
+    index('auction_entries_sales_idx').on(t.salesId),
+  ],
+)
+
+/**
+ * Every bid ever placed. Append-only — never UPDATE, never DELETE, same rule as
+ * `token_ledger`.
+ *
+ * Bids commit a sales user to a price. When a customer reports that the price
+ * was not honoured, this table is the evidence, so rewriting it would erase the
+ * only thing that makes a free bid cost anything.
+ */
+export const auctionBids = pgTable(
+  'auction_bids',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    auctionId: uuid('auction_id')
+      .notNull()
+      .references(() => auctions.id, { onDelete: 'cascade' }),
+    salesId: uuid('sales_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /**
+     * The published offer that entitled this bid. Nullable and `set null` on
+     * delete: the bid stays valid history even after the offer it came from is
+     * gone, and the entry ticket is checked at bid time, not at read time.
+     */
+    offerId: uuid('offer_id').references(() => salesOffers.id, { onDelete: 'set null' }),
+    offeredPrice: bigint('offered_price', { mode: 'number' }).notNull(),
+    /** `listPrice - offeredPrice`, frozen so a later list-price edit cannot restate it. */
+    discountAmount: bigint('discount_amount', { mode: 'number' }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('auction_bids_auction_created_idx').on(t.auctionId, t.createdAt),
+    index('auction_bids_sales_created_idx').on(t.salesId, t.createdAt),
+  ],
+)
+
+// ---------------------------------------------------------------------------
 // Sessions
 // ---------------------------------------------------------------------------
 
@@ -701,6 +936,25 @@ export const leadActivitiesRelations = relations(leadActivities, ({ one }) => ({
 export const requestsRelations = relations(requests, ({ one, many }) => ({
   customer: one(users, { fields: [requests.customerId], references: [users.id] }),
   leads: many(leads),
+  auction: one(auctions, { fields: [requests.id], references: [auctions.requestId] }),
+}))
+
+export const auctionsRelations = relations(auctions, ({ one, many }) => ({
+  request: one(requests, { fields: [auctions.requestId], references: [requests.id] }),
+  winner: one(users, { fields: [auctions.winnerSalesId], references: [users.id] }),
+  entries: many(auctionEntries),
+  bids: many(auctionBids),
+}))
+
+export const auctionEntriesRelations = relations(auctionEntries, ({ one }) => ({
+  auction: one(auctions, { fields: [auctionEntries.auctionId], references: [auctions.id] }),
+  sales: one(users, { fields: [auctionEntries.salesId], references: [users.id] }),
+}))
+
+export const auctionBidsRelations = relations(auctionBids, ({ one }) => ({
+  auction: one(auctions, { fields: [auctionBids.auctionId], references: [auctions.id] }),
+  sales: one(users, { fields: [auctionBids.salesId], references: [users.id] }),
+  offer: one(salesOffers, { fields: [auctionBids.offerId], references: [salesOffers.id] }),
 }))
 
 export const leadsRelations = relations(leads, ({ one, many }) => ({
@@ -740,6 +994,15 @@ export type DiscountType = (typeof discountTypeEnum.enumValues)[number]
 export type NotificationKind = (typeof notificationKindEnum.enumValues)[number]
 export type LeadActivityKind = (typeof leadActivityKindEnum.enumValues)[number]
 export type SalesDocumentKind = (typeof salesDocumentKindEnum.enumValues)[number]
+export type RequestStatus = (typeof requestStatusEnum.enumValues)[number]
+export type LeadSource = (typeof leadSourceEnum.enumValues)[number]
+export type AuctionStatus = (typeof auctionStatusEnum.enumValues)[number]
+export type AuctionEntryStatus = (typeof auctionEntryStatusEnum.enumValues)[number]
+
+export type Auction = typeof auctions.$inferSelect
+export type NewAuction = typeof auctions.$inferInsert
+export type AuctionEntry = typeof auctionEntries.$inferSelect
+export type AuctionBid = typeof auctionBids.$inferSelect
 
 export type Dealer = typeof dealers.$inferSelect
 export type NewDealer = typeof dealers.$inferInsert

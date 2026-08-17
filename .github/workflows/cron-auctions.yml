@@ -1,0 +1,54 @@
+name: Auction cron
+
+# Replaces the Vercel Cron entry that used to live in vercel.json. Hobby accounts
+# cap scheduled functions at one run per day, and the auction sweep needs a much
+# tighter cadence than that: sweepDueAuctions closes bidding, and revokeStaleLeads
+# frees a request whose winner never made contact. Running those daily would leave
+# a customer waiting up to a full extra day to hear from anybody.
+#
+# Move this back into vercel.json if the team is ever upgraded to Pro — Vercel runs
+# the schedule closer to on-time than GitHub does, and it needs no secret stored in
+# a second place.
+#
+# Required repository secrets (Settings > Secrets and variables > Actions):
+#   CRON_SECRET  same value as the CRON_SECRET environment variable in Vercel
+#   DEPLOY_URL   production origin, e.g. https://autonomo-id.vercel.app
+
+on:
+  schedule:
+    # Every five minutes. GitHub queues scheduled jobs on a best-effort basis and
+    # commonly runs them several minutes late, especially on the hour — the sweep
+    # is idempotent, so a late or doubled run settles nothing twice.
+    - cron: '*/5 * * * *'
+  # Manual trigger, for verifying the secret works without waiting for a tick.
+  workflow_dispatch:
+
+# Two overlapping sweeps would contend on the same row locks for no benefit.
+concurrency:
+  group: auction-cron
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Settle due auctions and revoke stale leads
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DEPLOY_URL: ${{ secrets.DEPLOY_URL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${CRON_SECRET:-}" ] || [ -z "${DEPLOY_URL:-}" ]; then
+            echo "CRON_SECRET and DEPLOY_URL must both be set as repository secrets."
+            exit 1
+          fi
+
+          # --fail-with-body so a 401 or 500 fails the job loudly instead of being
+          # recorded as a green run that quietly settled nothing. The body is
+          # printed because the route returns its tally there.
+          curl --silent --show-error --fail-with-body \
+            --retry 2 --retry-delay 5 --max-time 90 \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            "${DEPLOY_URL}/api/cron/auctions"
