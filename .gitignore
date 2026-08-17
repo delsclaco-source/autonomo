@@ -30,12 +30,15 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files — the template is committed, real secrets never are
-.env*
-!.env.example
-
-# vercel
-.vercel
+# env files
+#
+# Real secrets ARE committed to this repository, by explicit owner decision,
+# because the repository is private. Consequences to keep in mind:
+#   - anything committed stays in git history forever, even if deleted later
+#   - every collaborator added to the repo can read it
+#   - making the repo public would expose every secret in the history
+# Rotate DATABASE_URL, UPSTASH_REDIS_REST_TOKEN, SESSION_SECRET and CRON_SECRET
+# before this repository is shared or made public.
 
 # typescript
 *.tsbuildinfo
